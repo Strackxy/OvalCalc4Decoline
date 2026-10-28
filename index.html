@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d1117">
+<title>OvalCalc 4 Decoline</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1b222c; --line:#283039;
+    --ink:#e8edf4; --mut:#8b93a1; --mut2:#5d6673;
+    --big:#4d94ff; --small:#f0566d; --box:#3ecf8e; --part:#f5a524; --ell:#a78bfa;
+    --inputbg:#11161d;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    font-family:var(--sans);
+    color:var(--ink);
+    background:
+      radial-gradient(900px 600px at 80% -10%, rgba(77,148,255,.07), transparent 60%),
+      linear-gradient(0deg, rgba(255,255,255,.018) 1px, transparent 1px) 0 0/100% 28px,
+      linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px) 0 0/28px 100%,
+      var(--bg);
+    min-height:100dvh;
+    padding:max(16px,env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom));
+    -webkit-text-size-adjust:100%;
+  }
+  .wrap{max-width:1040px;margin:0 auto}
+  header{padding:8px 2px 18px}
+  .eyebrow{font:600 12px/1 var(--mono);letter-spacing:.22em;text-transform:uppercase;color:var(--mut2)}
+  h1{margin:8px 0 4px;font-size:clamp(26px,6vw,40px);font-weight:760;letter-spacing:-.02em}
+  .credit{color:var(--mut);font-weight:600;letter-spacing:.02em}
+  .sub{color:var(--mut);font-size:15px;max-width:52ch}
+  .grid{display:grid;gap:18px;grid-template-columns:1fr;align-items:start}
+  @media(min-width:880px){.grid{grid-template-columns:minmax(0,1fr) 420px}}
+  .col{display:grid;gap:18px;min-width:0}
+  .card{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:18px}
+  /* diagram */
+  .figcard{padding:14px;position:relative;overflow:hidden}
+  @media(min-width:880px){.figcard{position:sticky;top:16px}}
+  svg.fig{display:block;width:100%;height:auto}
+  .fignote{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:6px;padding:0 4px;color:var(--mut);font:500 12px/1.4 var(--mono)}
+  .legend{display:flex;gap:12px;flex-wrap:wrap}
+  .legend i{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:middle;margin-right:5px}
+  /* inputs */
+  .panel{padding:6px}
+  .row{display:grid;grid-template-columns:34px 1fr 150px;gap:10px;align-items:center;
+       padding:12px 12px;border-bottom:1px solid var(--line)}
+  .glyph{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;
+         font:700 16px/1 var(--mono);color:#0d1117;flex:none}
+  .meta{min-width:0}
+  .name{font-size:14.5px;font-weight:600;line-height:1.15;display:block}
+  .desc{font-size:11.5px;color:var(--mut);font-family:var(--mono);display:block}
+  .field{position:relative}
+  .field input{
+    width:100%;background:var(--inputbg);border:1.5px solid var(--line);border-radius:11px;
+    color:var(--ink);font:600 17px/1 var(--mono);text-align:right;
+    padding:11px 40px 11px 12px;outline:none;transition:border-color .12s,box-shadow .12s;
+  }
+  .field input::placeholder{color:var(--mut2);font-weight:500}
+  .field .unit{position:absolute;right:12px;top:50%;transform:translateY(-50%);
+               color:var(--mut);font:600 12px/1 var(--mono);pointer-events:none}
+  .row.is-input input{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent),0 0 0 3px color-mix(in srgb,var(--accent) 16%,transparent)}
+  .row.is-computed input{color:var(--accent);background:color-mix(in srgb,var(--accent) 7%,var(--inputbg));border-color:color-mix(in srgb,var(--accent) 30%,var(--line))}
+  .pill{position:absolute;left:10px;top:-8px;font:700 9px/1 var(--mono);letter-spacing:.12em;
+        text-transform:uppercase;padding:3px 6px;border-radius:6px;opacity:0;transition:opacity .12s}
+  .row.is-input .pill{opacity:1;background:var(--accent);color:#0d1117}
+  .row.is-computed .pill{opacity:1;background:var(--panel);color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 45%,transparent)}
+  .row.is-input .pill::after{content:"ingave"}
+  .row.is-computed .pill::after{content:"optimaal"}
+  .field input:focus{border-color:var(--accent)}
+  /* segmented part selector */
+  .seg{display:grid;grid-template-columns:repeat(3,1fr);background:var(--inputbg);border:1.5px solid var(--line);border-radius:11px;padding:3px;gap:3px}
+  .seg button{appearance:none;border:0;background:transparent;color:var(--mut);font:700 15px/1 var(--mono);
+              padding:9px 0;border-radius:8px;cursor:pointer;transition:.12s}
+  .seg button:hover{color:var(--ink)}
+  .seg button[aria-pressed="true"]{background:var(--part);color:#0d1117}
+  /* actions + msg */
+  .bar{display:flex;gap:10px;align-items:center;padding:14px 12px 4px;flex-wrap:wrap}
+  .hint{flex:1;min-width:160px;color:var(--mut);font-size:12.5px}
+  button.clr{appearance:none;border:1px solid var(--line);background:#202938;color:var(--ink);
+        font:600 13px/1 var(--sans);padding:11px 16px;border-radius:11px;cursor:pointer;transition:.12s}
+  button.clr:hover{background:#283448;border-color:#3a475a}
+  button.clr:active{transform:translateY(1px)}
+  .msg{margin:10px 12px 4px;border-radius:11px;padding:11px 13px;font-size:13px;line-height:1.45;display:none}
+  .msg.show{display:block}
+  .msg.err{background:rgba(240,86,109,.1);border:1px solid rgba(240,86,109,.4);color:#ffb3bf}
+  .msg.note{background:rgba(77,148,255,.08);border:1px solid rgba(77,148,255,.3);color:#bcd6ff}
+  /* results */
+  .res{padding:16px 16px 10px}
+  .res h2{margin:0 0 12px;font:600 12px/1 var(--mono);letter-spacing:.22em;text-transform:uppercase;color:var(--mut2)}
+  .arcs{display:grid;gap:10px;grid-template-columns:1fr}
+  @media(min-width:520px){.arcs{grid-template-columns:1fr 1fr}}
+  .arc{border:1px solid color-mix(in srgb,var(--accent) 35%,var(--line));background:color-mix(in srgb,var(--accent) 6%,transparent);border-radius:13px;padding:12px 14px}
+  .arc .t{font:700 11px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin-top:10px;font:600 15px/1.2 var(--mono)}
+  .kv span:nth-child(odd){color:var(--mut);font-weight:500;font-size:12.5px;align-self:center}
+  .kv span:nth-child(even){text-align:right;color:var(--ink)}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:12px}
+  .stat{border:1px solid var(--line);border-radius:13px;padding:11px 14px;background:var(--inputbg)}
+  .stat .l{font:500 11.5px/1.2 var(--mono);color:var(--mut)}
+  .stat .v{font:700 19px/1.2 var(--mono);margin-top:5px}
+  .stat .v small{font-size:12px;color:var(--mut);font-weight:600}
+  .tablewrap{overflow-x:auto;margin-top:14px;border:1px solid var(--line);border-radius:13px}
+  table{width:100%;border-collapse:collapse;font:600 14px/1.2 var(--mono);min-width:420px}
+  th,td{padding:10px 12px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+  th{font:600 11px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--mut2);background:var(--inputbg)}
+  th:first-child,td:first-child,th:nth-child(2),td:nth-child(2){text-align:left}
+  tr:last-child td{border-bottom:none}
+  tfoot td{color:var(--ink);background:var(--inputbg);border-top:1px solid var(--line)}
+  .num{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:7px;font-size:12px;color:#0d1117}
+  .ty{font-weight:600}
+  .resbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px}
+  .resbar .hint{flex:1}
+  .empty{color:var(--mut2);font:500 13px/1.5 var(--mono);padding:6px 0 8px}
+  footer{color:var(--mut2);font-size:12px;text-align:center;margin-top:24px;line-height:1.6}
+  footer code{font-family:var(--mono);color:var(--mut)}
+  /* color binding per row */
+  #row-part{--accent:var(--part)} #row-B{--accent:var(--box)} #row-H{--accent:var(--box)} #row-Rs{--accent:var(--small)}
+  .arc.big{--accent:var(--big)} .arc.small{--accent:var(--small)}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Ovaal · korfboog</div>
+    <h1>OvalCalc 4 Decoline</h1>
+    <p class="sub">Geef het kader van de klant in en kies welk deel van het ovaal. Het ovaal wordt benaderd met twee raakcirkels; je krijgt straal, hoek en booglengte per segment voor de buigmachine.</p>
+  </header>
+
+  <div class="grid">
+    <div class="col">
+      <!-- CONTROLS -->
+      <section class="card panel" aria-label="Invoer">
+        <div class="row" id="row-part">
+          <span class="glyph" style="background:var(--part)">D</span>
+          <span class="meta"><span class="name">Deel van het ovaal</span><span class="desc" id="part-desc"></span></span>
+          <span class="seg" role="group" aria-label="Deel van het ovaal">
+            <button type="button" data-part="1">¼</button>
+            <button type="button" data-part="2" aria-pressed="true">½</button>
+            <button type="button" data-part="4">1/1</button>
+          </span>
+        </div>
+        <div class="row" id="row-B">
+          <span class="glyph" style="background:var(--box)">B</span>
+          <span class="meta"><span class="name">Breedte kader</span><span class="desc">horizontale maat</span></span>
+          <span class="field"><span class="pill"></span><input id="in-B" inputmode="decimal" placeholder="—"><span class="unit">mm</span></span>
+        </div>
+        <div class="row" id="row-H">
+          <span class="glyph" style="background:var(--box)">H</span>
+          <span class="meta"><span class="name">Hoogte kader</span><span class="desc">verticale maat / diepte</span></span>
+          <span class="field"><span class="pill"></span><input id="in-H" inputmode="decimal" placeholder="—"><span class="unit">mm</span></span>
+        </div>
+        <div class="row" id="row-Rs" style="border-bottom:none">
+          <span class="glyph" style="background:var(--small)">r</span>
+          <span class="meta"><span class="name">Kleine straal</span><span class="desc">leeg = optimaal berekend</span></span>
+          <span class="field"><span class="pill"></span><input id="in-Rs" inputmode="decimal" placeholder="auto"><span class="unit">mm</span></span>
+        </div>
+
+        <div class="bar">
+          <span class="hint" id="hint">Vul breedte en hoogte in om te rekenen.</span>
+          <button class="clr" id="clear" type="button">Wis ingave</button>
+        </div>
+        <div class="msg" id="msg"></div>
+      </section>
+
+      <!-- RESULTS -->
+      <section class="card res" aria-label="Resultaat">
+        <h2>Buigwaarden</h2>
+        <div id="results"><div class="empty">Nog geen resultaat.</div></div>
+      </section>
+    </div>
+
+    <!-- DIAGRAM -->
+    <section class="card figcard" aria-label="Tekening">
+      <svg class="fig" id="fig" viewBox="0 0 420 360" role="img" aria-label="Ovaal-tekening"></svg>
+      <div class="fignote">
+        <span class="legend">
+          <span><i style="background:var(--big)"></i>grote boog</span>
+          <span><i style="background:var(--small)"></i>kleine boog</span>
+          <span><i style="background:var(--ell);opacity:.7"></i>ideale ellips</span>
+        </span>
+        <span id="scale">—</span>
+      </div>
+    </section>
+  </div>
+
+  <footer>
+    R<sub>groot</sub> = (a² + b² − 2·b·r) / (2·(a − r)) &nbsp;·&nbsp; hoek<sub>groot</sub> + hoek<sub>klein</sub> = 90° per kwart &nbsp;·&nbsp; BL = R·hoek<br>
+    <span class="credit">Design by Henny Strackx · Decoline</span>
+  </footer>
+</div>
+
+<script>
+const DEG = 180/Math.PI, TAU = 2*Math.PI;
+const PART_DESC = {
+  1: "kader = ¼ ovaal (zijkant → top)",
+  2: "kader = ½ ovaal, open aan de bovenkant",
+  4: "kader = buitenmaten volledig ovaal"
+};
+const PART_NAME = {1:"¼ ovaal", 2:"½ ovaal", 4:"volledig ovaal"};
+const el = {B:document.getElementById("in-B"), H:document.getElementById("in-H"), Rs:document.getElementById("in-Rs")};
+const rowEl = {B:document.getElementById("row-B"), H:document.getElementById("row-H"), Rs:document.getElementById("row-Rs")};
+const msg = document.getElementById("msg"), hint = document.getElementById("hint");
+const scaleNote = document.getElementById("scale"), resultsEl = document.getElementById("results");
+const partBtns = [...document.querySelectorAll(".seg button")];
+let part = 2, rsManual = false, programmatic = false, last = null;
+
+function parseNum(s){ if(s==null) return null; s=String(s).trim().replace(/\s/g,"").replace(",","."); if(s==="") return null; const v=parseFloat(s); return isFinite(v)?v:null; }
+function fmt(x,d=2){ if(!isFinite(x)) return "—"; return x.toLocaleString("nl-BE",{minimumFractionDigits:d,maximumFractionDigits:d}); }
+
+// ---------- geometry ----------
+// Ellipse centred at origin, semi-axes a (x) and b (y). Base quarter runs from (−a,0) to (0,−b).
+// Arc X sits at the x-end (radius Rx), arc Y at the y-end (radius Ry). The free parameter Rs is the
+// radius at the end of the LONGER semi-axis (the sharp end); the other radius follows from tangency.
+function geom(a,b,Rs){
+  let Rx,Ry;
+  if(b>=a){ Ry=Rs; Rx=(a*a+b*b-2*b*Ry)/(2*(a-Ry)); }
+  else    { Rx=Rs; Ry=(a*a+b*b-2*a*Rx)/(2*(b-Rx)); }
+  const cx={x:-a+Rx,y:0}, cy={x:0,y:-b+Ry};
+  const bigX=Rx>=Ry, cb=bigX?cx:cy, cs=bigX?cy:cx, Rb=bigX?Rx:Ry;
+  const dx=cs.x-cb.x, dy=cs.y-cb.y, len=Math.hypot(dx,dy);
+  const J={x:cb.x+Rb*dx/len, y:cb.y+Rb*dy/len};
+  const n=v=>((v%TAU)+TAU)%TAU;
+  const phx=n(Math.atan2(J.y-cx.y,J.x-cx.x)), phy=n(Math.atan2(J.y-cy.y,J.x-cy.x));
+  const angX=phx-Math.PI, angY=1.5*Math.PI-phy;
+  const ok=[Rx,Ry,angX,angY].every(isFinite)&&Rx>0&&Ry>0&&angX>1e-6&&angY>1e-6&&len>0;
+  return {ok,Rx,Ry,cx,cy,J,phx,phy,angX,angY};
+}
+function distArc(P,c,R,a0,a1){
+  let ang=Math.atan2(P.y-c.y,P.x-c.x); ang=((ang%TAU)+TAU)%TAU;
+  if(ang>=a0-1e-9&&ang<=a1+1e-9) return Math.abs(Math.hypot(P.x-c.x,P.y-c.y)-R);
+  const e0={x:c.x+R*Math.cos(a0),y:c.y+R*Math.sin(a0)}, e1={x:c.x+R*Math.cos(a1),y:c.y+R*Math.sin(a1)};
+  return Math.min(Math.hypot(P.x-e0.x,P.y-e0.y),Math.hypot(P.x-e1.x,P.y-e1.y));
+}
+function deviation(a,b,g,N=360){
+  let m=0;
+  for(let i=0;i<=N;i++){
+    const t=Math.PI/2*i/N, P={x:-a*Math.cos(t),y:-b*Math.sin(t)};
+    const d=Math.min(distArc(P,g.cx,g.Rx,Math.PI,g.phx),distArc(P,g.cy,g.Ry,g.phy,1.5*Math.PI));
+    if(d>m) m=d;
+  }
+  return m;
+}
+function optimize(a,b){
+  const s=Math.min(a,b), lo=s*0.02, hi=s*0.999, K=160;
+  let best=null;
+  for(let i=0;i<=K;i++){ const Rs=lo+(hi-lo)*i/K, g=geom(a,b,Rs); if(!g.ok) continue; const d=deviation(a,b,g); if(!best||d<best.d) best={Rs,d}; }
+  if(!best) return null;
+  const step=(hi-lo)/K; let L=Math.max(lo,best.Rs-step), H=Math.min(hi,best.Rs+step);
+  const f=r=>{const g=geom(a,b,r); return g.ok?deviation(a,b,g,720):Infinity;};
+  const gr=(Math.sqrt(5)-1)/2; let c=H-gr*(H-L), d=L+gr*(H-L), fc=f(c), fd=f(d);
+  for(let i=0;i<50;i++){ if(fc<fd){H=d;d=c;fd=fc;c=H-gr*(H-L);fc=f(c);} else {L=c;c=d;fc=fd;d=L+gr*(H-L);fd=f(d);} }
+  return (L+H)/2;
+}
+function ellipsePerimeter(a,b){ const h=((a-b)/(a+b))**2; return Math.PI*(a+b)*(1+3*h/(10+Math.sqrt(4-3*h))); }
+
+function axesFor(B,H,p){
+  if(p===1) return {a:B,b:H};
+  if(p===2) return {a:B/2,b:H};
+  return {a:B/2,b:H/2};
+}
+
+function solve(B,H,p,RsIn){
+  if(!(B>0)) return {error:"Breedte moet groter zijn dan 0."};
+  if(!(H>0)) return {error:"Hoogte moet groter zijn dan 0."};
+  const {a,b}=axesFor(B,H,p);
+  const short=Math.min(a,b), long=Math.max(a,b);
+  // (near) circle
+  if(Math.abs(a-b) < 1e-6*long || Math.abs(a-b) < 0.01){
+    return {a,b,circle:true,Rx:a,Ry:a,angX:Math.PI/4,angY:Math.PI/4,dev:0,Rs:a,
+            note:"Breedte en hoogte geven hier een cirkel: één straal van "+fmt(a)+" mm volstaat."};
+  }
+  let Rs=RsIn, auto=false;
+  if(Rs==null){ Rs=optimize(a,b); auto=true; if(Rs==null) return {error:"Geen geldige oplossing gevonden voor dit kader."}; }
+  else if(!(Rs>0 && Rs<short)) return {error:"De kleine straal moet tussen 0 en "+fmt(short)+" mm liggen (de korte halve as)."};
+  const g=geom(a,b,Rs);
+  if(!g.ok) return {error:"Met deze kleine straal sluiten de bogen niet geldig op elkaar aan."};
+  return {a,b,Rs,auto,...g,dev:deviation(a,b,g,2000)};
+}
+
+// segments in bending order. Quarters: Q3 (left-bottom), Q4 (right-bottom), Q1 (right-top), Q2 (left-top)
+function segments(res,p){
+  const X={R:res.Rx,ang:res.angX,arc:"X"}, Y={R:res.Ry,ang:res.angY,arc:"Y"};
+  const q=[["Q3",[X,Y]],["Q4",[Y,X]],["Q1",[X,Y]],["Q2",[Y,X]]].slice(0,p);
+  const list=[];
+  q.forEach(([quad,arcs])=>arcs.forEach(s=>list.push({...s,quad})));
+  if(res.circle){ // merge per quarter
+    return q.map(([quad])=>({R:res.Rx,ang:Math.PI/2,arc:"C",quad,big:true}));
+  }
+  const bigR=Math.max(res.Rx,res.Ry);
+  return list.map(s=>({...s,big:s.R===bigR}));
+}
+
+// ---------- diagram ----------
+const SVGNS="http://www.w3.org/2000/svg";
+const ns=(name,attrs)=>{const e=document.createElementNS(SVGNS,name);for(const k in attrs)e.setAttribute(k,attrs[k]);return e;};
+function drawFig(res,p,segs){
+  const fig=document.getElementById("fig"); fig.innerHTML="";
+  if(!res){
+    const t=ns("text",{x:210,y:185,"text-anchor":"middle",fill:"var(--mut2)","font-size":14,"font-family":"var(--mono)"});
+    t.textContent="geef breedte en hoogte in"; fig.appendChild(t); scaleNote.textContent="—"; return;
+  }
+  const {a,b}=res;
+  const box = p===1?{x0:-a,x1:0,y0:-b,y1:0}: p===2?{x0:-a,x1:a,y0:-b,y1:0}:{x0:-a,x1:a,y0:-b,y1:b};
+  const W=420,Hh=360,pad=34;
+  const k=Math.min((W-2*pad)/(box.x1-box.x0),(Hh-2*pad)/(box.y1-box.y0));
+  const ox=W/2-k*(box.x0+box.x1)/2, oy=Hh/2+k*(box.y0+box.y1)/2;
+  const X=x=>ox+k*x, Y=y=>oy-k*y;
+  scaleNote.textContent="1 px ≈ "+fmt(1/k,1)+" mm";
+  const mir={Q3:[1,1],Q4:[-1,1],Q1:[-1,-1],Q2:[1,-1]};
+
+  // box
+  fig.appendChild(ns("rect",{x:X(box.x0),y:Y(box.y1),width:k*(box.x1-box.x0),height:k*(box.y1-box.y0),fill:"none",stroke:"var(--box)","stroke-width":1.4,"stroke-opacity":.75}));
+  // ideal ellipse (only the part in the box)
+  const quads=["Q3","Q4","Q1","Q2"].slice(0,p);
+  quads.forEach(q=>{
+    const [sx,sy]=mir[q]; let d="";
+    for(let i=0;i<=80;i++){const t=Math.PI/2*i/80; d+=(i?"L":"M")+X(sx*-a*Math.cos(t)).toFixed(2)+" "+Y(sy*-b*Math.sin(t)).toFixed(2);}
+    fig.appendChild(ns("path",{d,fill:"none",stroke:"var(--ell)","stroke-width":1.4,"stroke-dasharray":"4 4","stroke-opacity":.8}));
+  });
+
+  // helper: arc points in base quarter
+  const arcPts=(arc,steps=60)=>{
+    let c,R,a0,a1;
+    if(res.circle){c={x:0,y:0};R=a;a0=Math.PI;a1=1.5*Math.PI;}
+    else if(arc==="X"){c=res.cx;R=res.Rx;a0=Math.PI;a1=res.phx;}
+    else {c=res.cy;R=res.Ry;a0=res.phy;a1=1.5*Math.PI;}
+    const pts=[]; for(let i=0;i<=steps;i++){const t=a0+(a1-a0)*i/steps; pts.push({x:c.x+R*Math.cos(t),y:c.y+R*Math.sin(t)});}
+    return {pts,c,R};
+  };
+
+  // construction lines in base quarter (centres + radii to junction), like the hand drawing
+  if(!res.circle){
+    const g=res, J=g.J;
+    [["X",g.cx,"var(--big)"],["Y",g.cy,"var(--small)"]].forEach(([arc,c,col])=>{
+      const colr = (arc==="X"?g.Rx:g.Ry)===Math.max(g.Rx,g.Ry)?"var(--big)":"var(--small)";
+      const endP = arc==="X"?{x:-a,y:0}:{x:0,y:-b};
+      [J,endP].forEach(P=>fig.appendChild(ns("line",{x1:X(c.x),y1:Y(c.y),x2:X(P.x),y2:Y(P.y),stroke:colr,"stroke-width":1,"stroke-opacity":.45})));
+      const cxp=X(c.x), cyp=Y(c.y);
+      if(cxp>-20&&cxp<W+20&&cyp>-20&&cyp<Hh+20){
+        fig.appendChild(ns("line",{x1:cxp-5,y1:cyp,x2:cxp+5,y2:cyp,stroke:colr,"stroke-width":1.4}));
+        fig.appendChild(ns("line",{x1:cxp,y1:cyp-5,x2:cxp,y2:cyp+5,stroke:colr,"stroke-width":1.4}));
+      }
+    });
+  }
+
+  // arcs + numbers
+  segs.forEach((s,i)=>{
+    const [sx,sy]=mir[s.quad];
+    const {pts,c}=arcPts(s.arc==="C"?"X":s.arc);
+    const col=s.big?"var(--big)":"var(--small)";
+    let d=""; pts.forEach((P,j)=>{d+=(j?"L":"M")+X(sx*P.x).toFixed(2)+" "+Y(sy*P.y).toFixed(2);});
+    fig.appendChild(ns("path",{d,fill:"none",stroke:col,"stroke-width":4,"stroke-linecap":"round"}));
+    // number badge, offset outward from the arc
+    const m=pts[Math.floor(pts.length/2)], dx=m.x-c.x, dy=m.y-c.y, L=Math.hypot(dx,dy)||1;
+    const off=15/k, bx=X(sx*(m.x+dx/L*off)), by=Y(sy*(m.y+dy/L*off));
+    fig.appendChild(ns("rect",{x:bx-9,y:by-9,width:18,height:18,rx:5,fill:col}));
+    const t=ns("text",{x:bx,y:by+0.5,"text-anchor":"middle","dominant-baseline":"middle","font-size":11,"font-weight":700,"font-family":"var(--mono)",fill:"#0d1117"});
+    t.textContent=i+1; fig.appendChild(t);
+  });
+  // junction dots
+  if(!res.circle) quads.forEach(q=>{const [sx,sy]=mir[q]; fig.appendChild(ns("circle",{cx:X(sx*res.J.x),cy:Y(sy*res.J.y),r:3,fill:"var(--ink)"}));});
+  // start marker
+  fig.appendChild(ns("circle",{cx:X(-a),cy:Y(0),r:4,fill:"none",stroke:"var(--ink)","stroke-width":1.6}));
+}
+
+// ---------- results ----------
+function renderResults(res,p,segs){
+  if(!res){ resultsEl.innerHTML='<div class="empty">Nog geen resultaat.</div>'; return; }
+  const total=segs.reduce((s,x)=>s+x.R*x.ang,0);
+  const ell=ellipsePerimeter(res.a,res.b)*p/4;
+  const bigR=Math.max(res.Rx,res.Ry), smallR=Math.min(res.Rx,res.Ry);
+  const bigAng=res.Rx>=res.Ry?res.angX:res.angY, smallAng=res.Rx>=res.Ry?res.angY:res.angX;
+  let html="";
+  if(res.circle){
+    html+=`<div class="arcs"><div class="arc big"><div class="t">Cirkelboog · per kwart</div><div class="kv">
+      <span>Straal</span><span>${fmt(res.Rx)} mm</span><span>Hoek</span><span>90,00°</span><span>Booglengte</span><span>${fmt(res.Rx*Math.PI/2)} mm</span></div></div></div>`;
+  } else {
+    html+=`<div class="arcs">
+      <div class="arc big"><div class="t">Grote boog</div><div class="kv">
+        <span>Straal</span><span>${fmt(bigR)} mm</span><span>Hoek</span><span>${fmt(bigAng*DEG)}°</span><span>Booglengte</span><span>${fmt(bigR*bigAng)} mm</span></div></div>
+      <div class="arc small"><div class="t">Kleine boog</div><div class="kv">
+        <span>Straal</span><span>${fmt(smallR)} mm</span><span>Hoek</span><span>${fmt(smallAng*DEG)}°</span><span>Booglengte</span><span>${fmt(smallR*smallAng)} mm</span></div></div>
+    </div>`;
+  }
+  html+=`<div class="stats">
+    <div class="stat"><div class="l">Totale lengte · ${PART_NAME[p]}</div><div class="v">${fmt(total,1)} <small>mm</small></div></div>
+    <div class="stat"><div class="l">Ideale ellips ter vergelijking</div><div class="v">${fmt(ell,1)} <small>mm</small></div></div>
+    <div class="stat"><div class="l">Max. afwijking t.o.v. ellips</div><div class="v">±${fmt(res.dev,1)} <small>mm</small></div></div>
+  </div>`;
+  let cum=0;
+  html+=`<div class="tablewrap"><table><thead><tr><th>#</th><th>Boog</th><th>Straal</th><th>Hoek</th><th>Booglengte</th><th>Cumul</th></tr></thead><tbody>`;
+  segs.forEach((s,i)=>{
+    const bl=s.R*s.ang; cum+=bl; const col=s.big?"var(--big)":"var(--small)";
+    html+=`<tr><td><span class="num" style="background:${col}">${i+1}</span></td><td class="ty" style="color:${col}">${res.circle?"cirkel":(s.big?"groot":"klein")}</td>
+      <td>${fmt(s.R)}</td><td>${fmt(s.ang*DEG)}°</td><td>${fmt(bl)}</td><td>${fmt(cum)}</td></tr>`;
+  });
+  html+=`</tbody><tfoot><tr><td></td><td>Totaal</td><td></td><td>${fmt(segs.reduce((s,x)=>s+x.ang,0)*DEG)}°</td><td>${fmt(total)}</td><td></td></tr></tfoot></table></div>`;
+  html+=`<div class="resbar"><span class="hint">Buigvolgorde vanaf het startpunt ○ in de tekening.</span><button class="clr" id="copy" type="button">Kopieer tabel</button></div>`;
+  resultsEl.innerHTML=html;
+  document.getElementById("copy").addEventListener("click",copyTable);
+}
+
+function copyTable(){
+  if(!last) return;
+  const {res,p,segs,B,H}=last;
+  let txt=`OvalCalc 4 Decoline · ${PART_NAME[p]} · kader ${fmt(B,0)} × ${fmt(H,0)} mm\n#\tBoog\tStraal\tHoek\tBooglengte\n`;
+  let tot=0;
+  segs.forEach((s,i)=>{const bl=s.R*s.ang; tot+=bl; txt+=`${i+1}\t${res.circle?"cirkel":(s.big?"groot":"klein")}\t${fmt(s.R)}\t${fmt(s.ang*DEG)}°\t${fmt(bl)}\n`;});
+  txt+=`Totaal\t\t\t\t${fmt(tot)}\nMax. afwijking t.o.v. ellips: ±${fmt(res.dev,1)} mm\n`;
+  const btn=document.getElementById("copy");
+  const done=()=>{btn.textContent="Gekopieerd ✓"; setTimeout(()=>{btn.textContent="Kopieer tabel";},1600);};
+  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done).catch(()=>fallbackCopy(txt,done));
+  else fallbackCopy(txt,done);
+}
+function fallbackCopy(txt,done){ const ta=document.createElement("textarea"); ta.value=txt; document.body.appendChild(ta); ta.select(); try{document.execCommand("copy");done();}catch(e){} ta.remove(); }
+
+// ---------- wiring ----------
+function setVal(k,v){ programmatic=true; el[k].value=v; programmatic=false; }
+function showMsg(text,type){ if(!text){msg.className="msg";msg.textContent="";return;} msg.textContent=text; msg.className="msg show "+type; }
+function save(){ try{ localStorage.setItem("ovalcalc",JSON.stringify({part,B:el.B.value,H:el.H.value,Rs:rsManual?el.Rs.value:""})); }catch(e){} }
+
+function recompute(){
+  document.getElementById("part-desc").textContent=PART_DESC[part];
+  partBtns.forEach(b=>b.setAttribute("aria-pressed",String(+b.dataset.part===part)));
+  const B=parseNum(el.B.value), H=parseNum(el.H.value);
+  rowEl.B.classList.toggle("is-input",B!=null); rowEl.H.classList.toggle("is-input",H!=null);
+  rowEl.Rs.classList.remove("is-input","is-computed");
+  if(rsManual) rowEl.Rs.classList.add("is-input");
+  save();
+
+  if(B==null||H==null){
+    if(!rsManual) setVal("Rs","");
+    last=null; drawFig(null); renderResults(null); showMsg("","");
+    hint.textContent = (B==null&&H==null)?"Vul breedte en hoogte in om te rekenen.":"Nog 1 maat nodig.";
+    return;
+  }
+  const res=solve(B,H,part,rsManual?parseNum(el.Rs.value):null);
+  if(res.error){
+    if(!rsManual) setVal("Rs","");
+    last=null; drawFig(null); renderResults(null); showMsg(res.error,"err"); hint.textContent="Controleer de ingave.";
+    return;
+  }
+  if(!rsManual){ setVal("Rs",fmt(res.circle?res.Rx:Math.min(res.Rx,res.Ry))); rowEl.Rs.classList.add("is-computed"); }
+  const segs=segments(res,part);
+  last={res,p:part,segs,B,H};
+  drawFig(res,part,segs); renderResults(res,part,segs);
+  hint.textContent = rsManual ? "Eigen kleine straal · grote straal volgt uit de aansluiting." : "Kleine straal gekozen voor de kleinste afwijking.";
+  let note=res.note||"";
+  if(!note && rsManual && res.dev>0){
+    const opt=optimize(res.a,res.b), gOpt=opt?geom(res.a,res.b,opt):null;
+    if(gOpt&&gOpt.ok){ const dOpt=deviation(res.a,res.b,gOpt,2000); if(res.dev>dOpt+0.5) note="Met kleine straal "+fmt(opt)+" mm zou de afwijking ±"+fmt(dOpt,1)+" mm zijn. Maak het veld leeg om die te gebruiken."; }
+  }
+  showMsg(note,note?"note":"");
+}
+
+["B","H"].forEach(k=>el[k].addEventListener("input",()=>{ if(!programmatic) recompute(); }));
+el.Rs.addEventListener("input",()=>{ if(programmatic) return; rsManual = el.Rs.value.trim()!==""; recompute(); });
+el.Rs.addEventListener("focus",()=>{ if(!rsManual) el.Rs.select(); });
+partBtns.forEach(b=>b.addEventListener("click",()=>{ part=+b.dataset.part; recompute(); }));
+document.getElementById("clear").addEventListener("click",()=>{
+  rsManual=false; ["B","H","Rs"].forEach(k=>setVal(k,"")); recompute(); el.B.focus();
+});
+
+// restore last input (per device)
+try{ const s=JSON.parse(localStorage.getItem("ovalcalc")||"null");
+  if(s){ if([1,2,4].includes(s.part)) part=s.part; setVal("B",s.B||""); setVal("H",s.H||""); if(s.Rs){ setVal("Rs",s.Rs); rsManual=true; } }
+}catch(e){}
+recompute();
+
+if("serviceWorker" in navigator){
+  window.addEventListener("load",()=>{ navigator.serviceWorker.register("sw.js").catch(()=>{}); });
+}
+</script>
+</body>
+</html>

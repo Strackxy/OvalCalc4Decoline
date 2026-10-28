@@ -1,0 +1,36 @@
+OvalCalc 4 Decoline — Ovaal buigen met twee raakcirkels (PWA)
+==============================================================
+
+Geef het kader (breedte x hoogte) en het deel van het ovaal (1/4, 1/2 of
+volledig). De app benadert de ellips met een grote boog (zijkant) en een
+kleine boog (punt) die tangentieel aansluiten, en geeft per segment de
+straal, hoek en booglengte in buigvolgorde.
+
+Kader per deel
+--------------
+  1/4      kader = een kwart: van zijkant tot top     -> a = B,   b = H
+  1/2      kader = halve ovaal, open aan de bovenkant -> a = B/2, b = H
+  1/1      kader = buitenmaten volledig ovaal         -> a = B/2, b = H/2
+
+Rekenformules (a = halve as aan de zijkant, b = halve as aan de punt, b > a)
+---------------------------------------------------------------------------
+  R_groot = (a^2 + b^2 - 2*b*r) / (2*(a - r))       r = kleine straal
+  hoek_klein = atan((R_groot - a) / (b - r)),  hoek_groot = 90 - hoek_klein
+  BL = R * hoek (radialen)
+  r wordt automatisch gekozen zodat de maximale afwijking t.o.v. de ideale
+  ellips zo klein mogelijk is; je kan ook zelf een kleine straal opgeven.
+
+Inhoud
+------
+  index.html, manifest.webmanifest, sw.js, icon-192.png, icon-512.png,
+  icon-maskable.png
+
+Online zetten (zelfde werkwijze als ArcCalc, volledig los ervan)
+---------------------------------------------------------------
+1. GitHub: New repository -> naam OvalCalc4DCL -> Create.
+2. Add file -> Upload files -> sleep de 6 bestanden erin -> Commit changes.
+3. Azure-portal: Create -> Static Web App (Free) -> koppel GitHub,
+   repo OvalCalc4DCL, branch main.
+   Build Details: App location "/", Api location en Output location leeg.
+4. Na 1-3 minuten staat de app op een nieuwe *.azurestaticapps.net-URL.
+   Op Android: open de URL in Chrome -> menu -> App installeren.
