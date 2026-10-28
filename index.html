@@ -117,6 +117,9 @@
   .ty{font-weight:600}
   .resbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px}
   .resbar .hint{flex:1}
+  .btns{display:flex;gap:8px;flex-wrap:wrap}
+  button.clr.pri{background:var(--big);border-color:var(--big);color:#0d1117}
+  button.clr.pri:hover{background:#6aa6ff;border-color:#6aa6ff}
   .empty{color:var(--mut2);font:500 13px/1.5 var(--mono);padding:6px 0 8px}
   footer{color:var(--mut2);font-size:12px;text-align:center;margin-top:24px;line-height:1.6}
   footer code{font-family:var(--mono);color:var(--mut)}
@@ -403,9 +406,134 @@ function renderResults(res,p,segs){
       <td>${fmt(s.R)}</td><td>${fmt(s.ang*DEG)}°</td><td>${fmt(bl)}</td><td>${fmt(cum)}</td></tr>`;
   });
   html+=`</tbody><tfoot><tr><td></td><td>Totaal</td><td></td><td>${fmt(segs.reduce((s,x)=>s+x.ang,0)*DEG)}°</td><td>${fmt(total)}</td><td></td></tr></tfoot></table></div>`;
-  html+=`<div class="resbar"><span class="hint">Buigvolgorde vanaf het startpunt ○ in de tekening.</span><button class="clr" id="copy" type="button">Kopieer tabel</button></div>`;
+  html+=`<div class="resbar"><span class="hint">Buigvolgorde vanaf het startpunt ○ in de tekening.</span>
+    <span class="btns"><button class="clr" id="copy" type="button">Kopieer tabel</button><button class="clr pri" id="snap" type="button">Kopieer afbeelding</button></span></div>`;
   resultsEl.innerHTML=html;
   document.getElementById("copy").addEventListener("click",copyTable);
+  document.getElementById("snap").addEventListener("click",copyImage);
+}
+
+// ---------- image export (whole overview as PNG) ----------
+function cssVars(){
+  const cs=getComputedStyle(document.documentElement), o={};
+  ["bg","panel","panel2","line","ink","mut","mut2","big","small","box","part","ell","inputbg","mono","sans"].forEach(k=>o[k]=cs.getPropertyValue("--"+k).trim());
+  return o;
+}
+function svgToImage(V){
+  const fig=document.getElementById("fig");
+  let s=new XMLSerializer().serializeToString(fig);
+  s=s.replace(/var\(--([\w-]+)\)/g,(m,k)=>(V[k]||m).replace(/"/g,"'"));
+  if(!/xmlns=/.test(s)) s=s.replace("<svg","<svg xmlns=\"http://www.w3.org/2000/svg\"");
+  s=s.replace("<svg","<svg width=\"840\" height=\"720\"");
+  return new Promise((ok,bad)=>{const img=new Image(); img.onload=()=>ok(img); img.onerror=bad; img.src="data:image/svg+xml;charset=utf-8,"+encodeURIComponent(s);});
+}
+async function renderImage(){
+  const {res,p,segs,B,H}=last, V=cssVars();
+  const S=2, W=1200, PAD=40, GAP=24, LW=660, RW=W-2*PAD-GAP-LW;
+  const rowH=40, tableH=rowH*(segs.length+2)+2;
+  const arcsH=res.circle?0:118, statsH=78;
+  const leftH=(res.circle?118:arcsH)+14+statsH+14+tableH;
+  const figH=Math.round(RW*360/420)+44;
+  const top=172, Hc=top+Math.max(leftH,figH)+70;
+  const cv=document.createElement("canvas"); cv.width=W*S; cv.height=Hc*S;
+  const c=cv.getContext("2d"); c.scale(S,S);
+  const mono=V.mono||"monospace", sans=V.sans||"sans-serif";
+  const rr=(x,y,w,h,r,fill,stroke)=>{c.beginPath();c.roundRect(x,y,w,h,r);if(fill){c.fillStyle=fill;c.fill();}if(stroke){c.strokeStyle=stroke;c.lineWidth=1;c.stroke();}};
+  const tx=(t,x,y,font,col,al="left")=>{c.font=font;c.fillStyle=col;c.textAlign=al;c.textBaseline="alphabetic";c.fillText(t,x,y);};
+  const mix=(hex,a)=>{const n=parseInt(hex.replace("#",""),16);return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`;};
+
+  // background + grid
+  c.fillStyle=V.bg; c.fillRect(0,0,W,Hc);
+  c.strokeStyle="rgba(255,255,255,.025)"; c.lineWidth=1;
+  for(let x=0;x<W;x+=28){c.beginPath();c.moveTo(x+.5,0);c.lineTo(x+.5,Hc);c.stroke();}
+  for(let y=0;y<Hc;y+=28){c.beginPath();c.moveTo(0,y+.5);c.lineTo(W,y+.5);c.stroke();}
+
+  // header
+  c.save(); c.font=`600 12px ${mono}`; c.fillStyle=V.mut2; c.textAlign="left"; c.letterSpacing="3px"; c.fillText("OVAAL · KORFBOOG",PAD,PAD+12); c.restore();
+  tx("OvalCalc 4 Decoline",PAD,PAD+56,`760 38px ${sans}`,V.ink);
+  const d=new Date().toLocaleDateString("nl-BE",{day:"2-digit",month:"2-digit",year:"numeric"});
+  const chips=[[PART_NAME[p],V.part],[`kader ${fmt(B,0)} × ${fmt(H,0)} mm`,V.box],[`kleine straal ${fmt(Math.min(res.Rx,res.Ry))} mm${rsManual?"":" (optimaal)"}`,V.small]];
+  let cx=PAD; c.font=`700 13px ${mono}`;
+  chips.forEach(([t,col])=>{const w=c.measureText(t).width+22; rr(cx,PAD+76,w,28,8,mix(col,.12),mix(col,.5)); tx(t,cx+11,PAD+95,`700 13px ${mono}`,col); cx+=w+10;});
+  tx(d,W-PAD,PAD+95,`500 13px ${mono}`,V.mut,"right");
+
+  // left column
+  let y=top;
+  const card=(x,yy,w,h,col)=>rr(x,yy,w,h,13,col?mix(col,.07):V.inputbg,col?mix(col,.4):V.line);
+  const arcCard=(x,w,title,col,R,ang)=>{
+    card(x,y,w,118,col);
+    c.save(); c.font=`700 11px ${mono}`; c.fillStyle=col; c.textAlign="left"; c.letterSpacing="1.5px"; c.fillText(title.toUpperCase(),x+16,y+26); c.restore();
+    [["Straal",fmt(R)+" mm"],["Hoek",fmt(ang*DEG)+"°"],["Booglengte",fmt(R*ang)+" mm"]].forEach(([k,v],i)=>{
+      tx(k,x+16,y+56+i*24,`500 13px ${mono}`,V.mut); tx(v,x+w-16,y+56+i*24,`700 16px ${mono}`,V.ink,"right");});
+  };
+  const bigR=Math.max(res.Rx,res.Ry), smallR=Math.min(res.Rx,res.Ry);
+  const bigAng=res.Rx>=res.Ry?res.angX:res.angY, smallAng=res.Rx>=res.Ry?res.angY:res.angX;
+  if(res.circle) arcCard(PAD,LW,"Cirkelboog · per kwart",V.big,res.Rx,Math.PI/2);
+  else { const w=(LW-12)/2; arcCard(PAD,w,"Grote boog",V.big,bigR,bigAng); arcCard(PAD+w+12,w,"Kleine boog",V.small,smallR,smallAng); }
+  y+=118+14;
+  const total=segs.reduce((s,x)=>s+x.R*x.ang,0), ell=ellipsePerimeter(res.a,res.b)*p/4;
+  const sw=(LW-24)/3;
+  [["Totale lengte",fmt(total,1)],["Ideale ellips",fmt(ell,1)],["Max. afwijking",`±${fmt(res.dev,1)}`]].forEach(([l,v],i)=>{
+    const x=PAD+i*(sw+12); card(x,y,sw,statsH);
+    tx(l,x+14,y+26,`500 12px ${mono}`,V.mut);
+    c.font=`700 22px ${mono}`; const vw=c.measureText(v).width;
+    tx(v,x+14,y+58,`700 22px ${mono}`,V.ink); tx("mm",x+14+vw+6,y+58,`600 12px ${mono}`,V.mut);
+  });
+  y+=statsH+14;
+  // table
+  rr(PAD,y,LW,tableH,13,null,V.line);
+  c.save(); c.beginPath(); c.roundRect(PAD,y,LW,tableH,13); c.clip();
+  c.fillStyle=V.inputbg; c.fillRect(PAD,y,LW,rowH); c.fillRect(PAD,y+tableH-rowH,LW,rowH); c.restore();
+  const cols=[[PAD+16,"left","#"],[PAD+60,"left","BOOG"],[PAD+260,"right","STRAAL"],[PAD+370,"right","HOEK"],[PAD+510,"right","BOOGLENGTE"],[PAD+LW-16,"right","CUMUL"]];
+  c.save(); c.letterSpacing="1px"; cols.forEach(([x,al,t])=>tx(t,x,y+25,`600 11px ${mono}`,V.mut2,al)); c.restore();
+  let cum=0;
+  segs.forEach((s,i)=>{
+    const ry=y+rowH*(i+1), col=s.big?V.big:V.small, bl=s.R*s.ang; cum+=bl;
+    c.strokeStyle=V.line; c.beginPath(); c.moveTo(PAD,ry+.5); c.lineTo(PAD+LW,ry+.5); c.stroke();
+    rr(PAD+14,ry+9,22,22,7,col); tx(String(i+1),PAD+25,ry+25,`700 12px ${mono}`,V.bg,"center");
+    tx(res.circle?"cirkel":(s.big?"groot":"klein"),PAD+60,ry+26,`600 15px ${mono}`,col);
+    [[PAD+260,fmt(s.R)],[PAD+370,fmt(s.ang*DEG)+"°"],[PAD+510,fmt(bl)],[PAD+LW-16,fmt(cum)]].forEach(([x,t])=>tx(t,x,ry+26,`600 15px ${mono}`,V.ink,"right"));
+  });
+  const fy=y+tableH-rowH;
+  c.strokeStyle=V.line; c.beginPath(); c.moveTo(PAD,fy+.5); c.lineTo(PAD+LW,fy+.5); c.stroke();
+  tx("Totaal",PAD+60,fy+26,`700 15px ${mono}`,V.ink);
+  tx(fmt(segs.reduce((s,x)=>s+x.ang,0)*DEG)+"°",PAD+370,fy+26,`700 15px ${mono}`,V.ink,"right");
+  tx(fmt(total),PAD+510,fy+26,`700 15px ${mono}`,V.ink,"right");
+
+  // right column: diagram
+  const fx=PAD+LW+GAP;
+  rr(fx,top,RW,figH,18,V.panel,V.line);
+  const img=await svgToImage(V);
+  const iw=RW-24, ih=iw*360/420;
+  c.drawImage(img,fx+12,top+10,iw,ih);
+  let lx=fx+16; const ly=top+figH-16;
+  [["grote boog",V.big],["kleine boog",V.small],["ideale ellips",V.ell]].forEach(([t,col])=>{
+    c.fillStyle=col; c.fillRect(lx,ly-6,14,3); tx(t,lx+20,ly,`500 12px ${mono}`,V.mut); c.font=`500 12px ${mono}`; lx+=20+c.measureText(t).width+16;});
+
+  // footer
+  tx("Buigvolgorde vanaf het startpunt ○ in de tekening",PAD,Hc-28,`500 12px ${sans}`,V.mut2);
+  tx("Design by Henny Strackx · Decoline",W-PAD,Hc-28,`600 12px ${sans}`,V.mut,"right");
+  return new Promise(ok=>cv.toBlob(ok,"image/png"));
+}
+async function copyImage(){
+  if(!last) return;
+  const btn=document.getElementById("snap"), label="Kopieer afbeelding";
+  const flash=t=>{btn.textContent=t; setTimeout(()=>{btn.textContent=label;},1800);};
+  const {p,B,H}=last;
+  const name=`OvalCalc_${PART_NAME[p].replace(/\s/g,"")}_${Math.round(B)}x${Math.round(H)}.png`.replace("¼","kwart").replace("½","half");
+  btn.textContent="Bezig…";
+  const blobP=renderImage();
+  try{
+    if(!(navigator.clipboard&&window.ClipboardItem)) throw 0;
+    await navigator.clipboard.write([new ClipboardItem({"image/png":blobP})]);
+    flash("Gekopieerd ✓"); return;
+  }catch(e){}
+  try{
+    const blob=await blobP, file=new File([blob],name,{type:"image/png"});
+    if(navigator.canShare&&navigator.canShare({files:[file]})){ await navigator.share({files:[file],title:"OvalCalc 4 Decoline"}); flash("Gedeeld ✓"); return; }
+    const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href),4000); flash("Gedownload ✓");
+  }catch(e){ flash("Niet gelukt"); }
 }
 
 function copyTable(){
